@@ -1,1 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US Macro Daten Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .chart-container {
+            width: 80%;
+            margin-bottom: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #444;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <h2>US Macro Daten Dashboard</h2>
 
+        <div class="chart-container">
+            <h3>Non-Farm Payrolls (NFP)</h3>
+            <canvas id="nfpChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // API-Key (SICHERHEITSRISIKO: NICHT IN PRODUKTIONSUMGEBUNGEN VERWENDEN)
+        const apiKey = 'DPO6P55HB388RUUZ';
+
+        // Funktion zum Abrufen der NFP-Daten von der API
+        async function getNFPData() {
+            const symbol = 'IBM'; // Beispiel-Symbol
+            const interval = '60min'; // Beispiel-Intervall
+            const functionName = 'TIME_SERIES_INTRADAY';
+
+            const apiUrl = `https://www.alphavantage.co/query?function=${functionName}&symbol=${symbol}&interval=${interval}&apikey=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                // Verarbeiten der Daten (hier müssen Sie die API-Antwort anpassen)
+                const timeSeries = data['Time Series (60min)'];
+                const labels = Object.keys(timeSeries).reverse();
+                const values = labels.map(label => parseFloat(timeSeries[label]['1. open'])).reverse();
+
+                return { labels, values };
+            } catch (error) {
+                console.error('Fehler beim Abrufen der NFP-Daten:', error);
+                return { labels: [], values: [] };
+            }
+        }
+
+        // Funktion zum Erstellen des Charts
+        async function createNFPChart() {
+            const nfpData = await getNFPData();
+            const ctx = document.getElementById('nfpChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: nfpData.labels,
+                    datasets: [{
+                        label: 'Non-Farm Payrolls (Beispiel)',
+                        data: nfpData.values,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chart erstellen
+        createNFPChart();
+    </script>
+</body>
+</html>
