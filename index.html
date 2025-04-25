@@ -1,104 +1,106 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>US Macro Daten Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
-        }
-        .dashboard-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .chart-container {
-            width: 80%;
-            margin-bottom: 20px;
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h2 {
-            color: #444;
-            text-align: center;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live US Macro Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <div class="dashboard-container">
-        <h2>US Macro Daten Dashboard</h2>
+<body class="bg-gray-100">
+  <div class="container mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-4 text-gray-800">📊 US Macro Dashboard</h1>
+    <div id="last-updated" class="text-sm text-gray-500 mb-6">Loading latest data...</div>
 
-        <div class="chart-container">
-            <h3>Non-Farm Payrolls (NFP)</h3>
-            <canvas id="nfpChart"></canvas>
-        </div>
+    <!-- NFP & Unemployment Rate -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="text-xl font-semibold text-gray-700 mb-2">Non-Farm Payrolls</h2>
+        <p id="nfp-value" class="text-2xl text-blue-600 font-bold">--</p>
+      </div>
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="text-xl font-semibold text-gray-700 mb-2">Unemployment Rate</h2>
+        <p id="unemp-value" class="text-2xl text-blue-600 font-bold">--</p>
+      </div>
     </div>
 
-    <script>
-        // API-Key (SICHERHEITSRISIKO: NICHT IN PRODUKTIONSUMGEBUNGEN VERWENDEN)
-        const apiKey = 'DPO6P55HB388RUUZ';
+    <!-- CPI -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="text-xl font-semibold text-gray-700 mb-2">Consumer Price Index (YoY)</h2>
+        <p id="cpi-value" class="text-2xl text-blue-600 font-bold">--</p>
+      </div>
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="text-xl font-semibold text-gray-700 mb-2">Core CPI (YoY)</h2>
+        <p id="core-cpi-value" class="text-2xl text-blue-600 font-bold">--</p>
+      </div>
+    </div>
 
-        // Funktion zum Abrufen der NFP-Daten von der API
-        async function getNFPData() {
-            const symbol = 'IBM'; // Beispiel-Symbol
-            const interval = '60min'; // Beispiel-Intervall
-            const functionName = 'TIME_SERIES_INTRADAY';
+    <!-- Bias Result -->
+    <div class="bg-white p-6 rounded shadow">
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">🔍 Trader Bias</h2>
+      <div id="bias-result" class="text-lg font-bold text-gray-800">Calculating...</div>
+    </div>
+  </div>
 
-            const apiUrl = `https://www.alphavantage.co/query?function=${functionName}&symbol=${symbol}&interval=${interval}&apikey=${apiKey}`;
+  <script>
+    const API_KEY = 'DPO6P55HB388RUUZ';
 
-            try {
-                const response = await fetch(apiUrl);
-                const data = await response.json();
+    async function fetchFREDData(series_id) {
+      const targetUrl = `https://api.stlouisfed.org/fred/series/observations?series_id=${series_id}&api_key=${API_KEY}&file_type=json`;
+      try {
+        const response = await fetch(targetUrl);
+        const contentType = response.headers.get("content-type");
 
-                // Verarbeiten der Daten (hier müssen Sie die API-Antwort anpassen)
-                const timeSeries = data['Time Series (60min)'];
-                const labels = Object.keys(timeSeries).reverse();
-                const values = labels.map(label => parseFloat(timeSeries[label]['1. open'])).reverse();
-
-                return { labels, values };
-            } catch (error) {
-                console.error('Fehler beim Abrufen der NFP-Daten:', error);
-                return { labels: [], values: [] };
-            }
+        if (!response.ok) throw new Error("Network response was not ok");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Invalid JSON response - check if the endpoint is accessible");
         }
 
-        // Funktion zum Erstellen des Charts
-        async function createNFPChart() {
-            const nfpData = await getNFPData();
-            const ctx = document.getElementById('nfpChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: nfpData.labels,
-                    datasets: [{
-                        label: 'Non-Farm Payrolls (Beispiel)',
-                        data: nfpData.values,
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 2,
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
+        const data = await response.json();
+        const latest = data.observations.reverse().find(obs => obs.value && obs.value !== ".");
+        return parseFloat(latest.value);
+      } catch (error) {
+        console.error(`Fetch error for ${series_id}:`, error);
+        return NaN;
+      }
+    }
+
+    async function loadDashboard() {
+      try {
+        document.getElementById('last-updated').innerText = `Last updated: ${new Date().toLocaleString()}`;
+
+        const [nfp, unemp, cpi, coreCpi] = await Promise.all([
+          fetchFREDData('PAYEMS'),
+          fetchFREDData('UNRATE'),
+          fetchFREDData('CPIAUCSL'),
+          fetchFREDData('CPILFESL')
+        ]);
+
+        document.getElementById('nfp-value').innerText = isNaN(nfp) ? '--' : `${nfp.toLocaleString()}K`;
+        document.getElementById('unemp-value').innerText = isNaN(unemp) ? '--' : `${unemp.toFixed(1)}%`;
+        document.getElementById('cpi-value').innerText = isNaN(cpi) ? '--' : `${cpi.toFixed(1)}%`;
+        document.getElementById('core-cpi-value').innerText = isNaN(coreCpi) ? '--' : `${coreCpi.toFixed(1)}%`;
+
+        const hawkishFactors = (nfp > 150000 ? 1 : 0) + (cpi > 3 ? 1 : 0) + (coreCpi > 3 ? 1 : 0);
+
+        let biasText = '';
+        if (hawkishFactors >= 2) {
+          biasText = '🐻 Bearish Bias - Hawkish economic indicators suggest tighter Fed policy';
+        } else if (hawkishFactors === 1) {
+          biasText = '⚖️ Neutral Bias - Mixed indicators, market may stay range-bound';
+        } else {
+          biasText = '🐂 Bullish Bias - Dovish signals, Fed likely to ease policy';
         }
 
-        // Chart erstellen
-        createNFPChart();
-    </script>
+        document.getElementById('bias-result').innerText = biasText;
+      } catch (err) {
+        document.getElementById('bias-result').innerText = 'Error loading data. Please try again later.';
+        console.error(err);
+      }
+    }
+
+    loadDashboard();
+  </script>
 </body>
 </html>
